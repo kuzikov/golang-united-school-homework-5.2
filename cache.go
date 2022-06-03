@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// TODO: clear expired entries
 type storage struct {
 	val    string
 	expire *time.Time
@@ -15,6 +14,18 @@ type storage struct {
 type Cache struct {
 	mu   sync.Mutex
 	data map[string]storage
+}
+
+func (cache *Cache) clear() {
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	now := time.Now()
+	for key, entry := range cache.data {
+
+		if entry.expire != nil && entry.expire.Sub(now) < time.Nanosecond {
+			delete(cache.data, key)
+		}
+	}
 }
 
 // NewCache create initialized empty Cache.
@@ -27,8 +38,10 @@ func NewCache() Cache {
 
 // Get return data
 func (cache *Cache) Get(key string) (string, bool) {
+	cache.clear()
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+
 	storage, ok := cache.data[key]
 	if !ok {
 		return "", false
@@ -49,8 +62,10 @@ func (cache *Cache) Get(key string) (string, bool) {
 
 // Put ...
 func (cache *Cache) Put(key, value string) {
+	cache.clear()
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+
 	cache.data[key] = storage{
 		val:    value,
 		expire: nil,
@@ -60,6 +75,7 @@ func (cache *Cache) Put(key, value string) {
 
 // Keys ...
 func (cache *Cache) Keys() []string {
+	cache.clear()
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
@@ -85,8 +101,10 @@ func (cache *Cache) Keys() []string {
 
 // PutTill ...
 func (cache *Cache) PutTill(key, value string, deadline time.Time) {
+	cache.clear()
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
+
 	timeCopy := deadline
 	cache.data[key] = storage{
 		val:    value,
